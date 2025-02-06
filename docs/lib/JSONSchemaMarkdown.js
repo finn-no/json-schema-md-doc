@@ -47,6 +47,49 @@ class JSONSchemaMarkdown {
          * @type {String}
          */
         this.footer = "\n_Generated with [json-schema-md-doc](https://brianwendt.github.io/json-schema-md-doc/)_";
+
+        /**
+         * The character(s) used for the root of the property's path.
+         * Defaults to "#".
+         * @type {String}
+         */
+        this.rootChar = "#";
+
+        /**
+         * Enable compact print.
+         * Defaults to false.
+         * @type {boolean}
+         */
+        this.compact = false;
+
+        /**
+         * Path segment for properties of an object.
+         * Defaults to "properties".
+         * @type {string}
+         */
+        this.pathForProperties = "properties";
+
+        /**
+         * Path segment for definitions of an object.
+         * Defaults to "definitions".
+         * @type {string}
+         */
+        this.pathForDefinitions = "definitions";
+
+        /**
+         * Path segment for items of an array.
+         * Defaults to "items".
+         * @type {string}
+         */
+        this.pathForItems = "items";
+
+        /**
+         * Omit path divider right before the path segment for items.
+         * Defaults to false.
+         * @type {boolean}
+         */
+        this.omitPathDividerForItems = false;
+
     }
 
     /**
@@ -86,7 +129,7 @@ class JSONSchemaMarkdown {
         this.markdown = "";
         if (this.errors.length < 1) {
             try {
-                this.generateChildren("", this.schema, 0, "#");
+                this.generateChildren(null, this.schema, 0, this.rootChar);
             } catch (e) {
                 this.error(e.toString());
             }
@@ -110,20 +153,22 @@ class JSONSchemaMarkdown {
     generateChildren(name, data, level, path) {
         if (this.notEmpty(data["$id"])) {
             // set this as base path to children.
-            path = "#" + data["$id"];
+            path = this.rootChar + data["$id"];
         }
         //
-        this.typeGeneric(name, data, level, path);
+        this.typeGeneric(name, data, level+1, path);
 
         if (typeof data.type === "string") {
-            this.getTypeMethod(data.type)(name, data, level, path);
+            this.getTypeMethod(data.type)(name, data, level+1, path);
         } else if (Array.isArray(data.type)) {
             data.type.map(type => {
-                this.getTypeMethod(type)(name, data, level, path);
+                this.getTypeMethod(type)(name, data, level+1, path);
             });
         }
         if (this.notEmpty(data.definitions)) {
-            path += "/definitions";
+            if(this.notEmpty(this.pathForDefinitions)) {
+                path += this.pathDivider + this.pathForDefinitions;
+            }
             this.writeHeader("definitions", level, path);
             for (var term in data.definitions) {
                 var defPath = path + this.pathDivider + term;
@@ -146,12 +191,12 @@ class JSONSchemaMarkdown {
         this.writeHeader(data.title, level, path);
         this.writeDescription(data.description, level, path);
         this.writeType(data.type, level, path);
-        this.writePath(level, path);
+        if(!this.compact) this.writePath(level, path);
         this.writeSchema(data["$schema"], level);
         this.writeRef(data["$ref"], level, path);
         this.writeId(data["$id"], level, path);
-        this.writeComment(data["$comment"], level, path);
-        this.writeExamples(data.examples, level, path);
+        if(!this.compact) this.writeComment(data["$comment"], level, path);
+        if(!this.compact) this.writeExamples(data.examples, level, path);
         this.writeEnum(data.enum, level);
         this.writeDefault(data.default, level, path);
     }
@@ -171,16 +216,24 @@ class JSONSchemaMarkdown {
             this.writeMinMax(data.minItems, data.maxItems);
         }
         if (this.notEmpty(data.items)) {
-            this.writeSectionName("Items", level + 1, path + "/items");
+            let pathForItems = ""
+            if(this.notEmpty(this.pathForItems)) {
+                let pathDivider = this.pathDivider;
+                if(this.omitPathDividerForItems === true) {
+                    pathDivider = "";
+                }
+                pathForItems = pathDivider + this.pathForItems
+            }
+            this.writeSectionName("Items", level + 1, path + pathForItems);
             if (Array.isArray(data.items)) {
                 // Multiple Item Validations / "Tuple validation"
                 data.items.map(item => {
-                    this.generateChildren('item', item, level + 1, path + "/items");
+                    this.generateChildren('item', item, level + 3, path + pathForItems);
                     this.writeLine("", level);
                 });
             } else if (this.notEmpty(data.items)) {
                 //Normal Validation
-                this.generateChildren('item', data.items, level + 1, path + "/items");
+                this.generateChildren('item', data.items, level + 3, path + pathForItems);
             }
         }
     }
@@ -256,23 +309,31 @@ class JSONSchemaMarkdown {
     typeObject(name, data, level, path) {
         const required = data.required ?? [];
         const properties = data.properties || {};
-        this.writeAdditionalProperties(data.additionalProperties, level);
+        if(!this.compact) this.writeAdditionalProperties(data.additionalProperties, level+1);
 
         if (this.notEmpty(data.minProperties) || this.notEmpty(data.maxProperties)) {
-            this.indent(level);
+            this.indent(level+1);
             this.markdown += "Property Count: ";
             this.writeMinMax(data.minProperties, data.maxProperties);
         }
 
-        this.writePropertyNames(data.propertyNames, level);
-        this.writeSectionName("Properties", level, path);
-        path += "/properties";
-        for (var propName in properties) {
-            var propPath = path + this.pathDivider + propName;
-            var property = properties[propName];
-            var isRequired = (required.indexOf(propName) > -1);
-            this.writePropertyName(propName, level + 1, propPath, isRequired);
-            this.generateChildren(propName, property, level + 2, propPath);
+        if (data.properties) {
+            this.writePropertyNames(data.propertyNames, level + 1);
+            let extraIndent = 0
+            if(!this.compact) {
+                this.writeSectionName("Properties", level + 1, path + 1);
+                extraIndent = 2
+            }
+            if(this.notEmpty(this.pathForProperties)) {
+                path += this.pathDivider + this.pathForProperties
+            }
+            for (var propName in properties) {
+                var propPath = path + this.pathDivider + propName;
+                var property = properties[propName];
+                var isRequired = (required.indexOf(propName) > -1);
+                this.writePropertyName(propName, level + 1 + extraIndent, propPath, isRequired);
+                this.generateChildren(propName, property, level + 2 + extraIndent, propPath);
+            }
         }
     }
 

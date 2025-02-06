@@ -55,7 +55,7 @@ _Generated with [json-schema-md-doc](https://brianwendt.github.io/json-schema-md
 ```
 For a more complete example, [check out this JSFiddle](https://jsfiddle.net/OntoDevelopment/a0hmcndu/).
 
-## Extendabale
+## Extendable
 You may easily extend `JSONSchemaMarkdown.js` to customize the formatting of your markdown by overriding any method.
 ``` javascript
 class MyDoccer extends JSONSchemaMarkdown {
@@ -71,4 +71,21 @@ class MyDoccer extends JSONSchemaMarkdown {
         }
     }
 };
+```
+
+## Another example
+
+Paths print like `jq` paths.
+Compact hides some of the output.
+
+```javascript
+const Doccer = new JSONSchemaMarkdown();
+Doccer.indentChar = " ";
+Doccer.rootChar = "";
+Doccer.pathDivider = ".";
+Doccer.pathForProperties = "";
+Doccer.pathForDefinitions = "";
+Doccer.pathForItems = "[*]";
+Doccer.omitPathDividerForItems = true;
+Doccer.compact = true;
 ```
