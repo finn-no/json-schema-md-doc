@@ -224,7 +224,7 @@ class JSONSchemaMarkdown {
                 }
                 pathForItems = pathDivider + this.pathForItems
             }
-            this.writeSectionName("Items", level + 1, path + pathForItems);
+            this.writeSectionName("Items", level + 2, path + pathForItems);
             if (Array.isArray(data.items)) {
                 // Multiple Item Validations / "Tuple validation"
                 data.items.map(item => {
